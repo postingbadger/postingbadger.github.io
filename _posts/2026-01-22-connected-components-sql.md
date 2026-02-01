@@ -60,9 +60,7 @@ A mapping from node → connected component ID is also available.
 
 ## Implementation in BigQuery
 
-### Step 1: Represent the Graph as an Adjacency List
-
-Here’s how the adjacency list looks for the example graph:
+Before the iteration, we will need to  represent the example graph as an adjacency list:
 
 | src_node | dst_node |
 |--------|--------|
