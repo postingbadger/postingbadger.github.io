@@ -58,9 +58,9 @@ A mapping from node → connected component ID is also available.
 
 ---
 
-## Implementation in BigQuery
+## BigQuery Implementation
 
-Before the iteration, we will need to  represent the example graph as an adjacency list:
+Before the iterations, we will need to  represent the example graph as an adjacency list:
 
 | src_node | dst_node |
 |--------|--------|
@@ -80,14 +80,14 @@ We refer to this table as `bi_edge`.
 
 ---
 
-## Full BigQuery Script
+### Full BigQuery Script
 
 ```sql
 DECLARE unconverged BOOL DEFAULT TRUE;
 DECLARE iter INT64 DEFAULT 0;
-DECLARE max_iter INT64 DEFAULT 100;
+DECLARE max_iter INT64 DEFAULT 10;
 
--- Create bidirectional edge table
+-- Create bidirectional edges table
 CREATE OR REPLACE TEMP TABLE bi_edge AS
 WITH edge_table AS (
   SELECT 1 AS src_node, 2 AS dst_node UNION ALL
@@ -124,6 +124,7 @@ WHILE unconverged AND iter < max_iter DO
   FROM node_cc nc
   LEFT JOIN bi_edge be
     ON nc.node_id = be.src_node
+  -- get latest node labels
   LEFT JOIN node_cc nc1
     ON be.dst_node = nc1.node_id
   GROUP BY nc.node_id;
@@ -135,9 +136,21 @@ WHILE unconverged AND iter < max_iter DO
       USING (node_id)
     WHERE nc.label != nnc.label
   );
-
+  
+  -- update node labels
   CREATE OR REPLACE TEMP TABLE node_cc AS
   SELECT * FROM new_node_cc;
 
 END WHILE;
 ```
+
+`node_cc` Result
+![Figure 3: Connected Component Example](/resources/connected_component_sql/node_cc_result.png)
+
+
+## Caveats
+The runtime of the algorithm depends on the number of nodes, node degree (size of join), and the graph diameter (path length between two nodes). In a worst case scenario, suppose there are n nodes, each connected with n - 1 nodes, it can be O(n^3). High number of node degree and graph diameter can fail the iterations.
+
+Therefore, this approach works well for large, sparse graphs with small diameters, which are common in many real-world datasets. The approach can get expensive for dense graphs and is unlikely to converge. It's important to 
+1. always set the `max_iter` to avoid running indefinitely 
+2. remove nodes with high degree can also help. However, this requires determining a removal threshold which depends case by case.
